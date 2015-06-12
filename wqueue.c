@@ -1,15 +1,17 @@
 #include <stdlib.h>
 #include <assert.h>
+#include <semaphore.h>
+#include <pthread.h>
 #include "lqueue.h"
 #include "wqueue.h"
 
 #define QUEUE_EXPONENT 8  // 256 queue slots
+#define POISON         NULL
 
 struct wqueue {
     lqueue *lqueue;
     int nthreads;
-    sem_t offer;
-    sem_t poll;
+    sem_t count;
     struct wqueue_data {
         pthread_t thread;
         int id;
@@ -27,14 +29,13 @@ worker(void *arg)
 {
     struct wqueue_data *data = arg;
     for (;;) {
-        sem_wait(&data->q->poll);
+        sem_wait(&data->q->count);
         struct job job;
-        int r = lqueue_poll(data->q->lqueue, &job);
-        assert(r == 0);
-        sem_post(&data->q->offer);
-        if (job.f == NULL)
-            break;
-        job.f(data->id, job.arg);
+        if (0 == lqueue_poll(data->q->lqueue, &job)) {
+            if (job.f == POISON)
+                break;
+            job.f(data->id, job.arg);
+        }
     }
     return NULL;
 }
@@ -42,14 +43,15 @@ worker(void *arg)
 wqueue *
 wqueue_create(int nthreads)
 {
+    assert(((unsigned)nthreads + 1) < (1UL << QUEUE_EXPONENT));
+    nthreads--;
     wqueue *q = malloc(sizeof(*q) + sizeof(q->threads[0]) * nthreads);
     q->lqueue = lqueue_create(QUEUE_EXPONENT, sizeof(struct job));
-    sem_init(&q->offer, 0, (1UL << QUEUE_EXPONENT) - 1);
-    sem_init(&q->poll, 0, 0);
+    sem_init(&q->count, 0, 0);
     q->nthreads = nthreads;
     for (int i = 0; i < nthreads; i++) {
         q->threads[i].q = q;
-        q->threads[i].id = i;
+        q->threads[i].id = i + 1;
         pthread_create(&q->threads[i].thread, NULL, worker, &q->threads[i]);
     }
     return q;
@@ -58,13 +60,13 @@ wqueue_create(int nthreads)
 void
 wqueue_free(wqueue *q)
 {
+    wqueue_wait(q);
     for (int i = 0; i < q->nthreads; i++)
-        wqueue_add(q, NULL, NULL);
+        wqueue_add(q, POISON, NULL);
     for (int i = 0; i < q->nthreads; i++)
         pthread_join(q->threads[i].thread, NULL);
     lqueue_free(q->lqueue);
-    sem_close(&q->offer);
-    sem_close(&q->poll);
+    sem_close(&q->count);
     free(q);
 }
 
@@ -72,15 +74,18 @@ void
 wqueue_add(wqueue *q, void (*f)(int, void *), void *v)
 {
     struct job job = {f, v};
-    sem_wait(&q->offer);
-    int r = lqueue_offer(q->lqueue, &job);
-    assert(r == 0);
-    sem_post(&q->poll);
+    while (lqueue_offer(q->lqueue, &job) != 0) {
+        struct job job;
+        if (0 == lqueue_poll(q->lqueue, &job))
+            job.f(0, job.arg);
+    }
+    sem_post(&q->count);
 }
 
 void
 wqueue_wait(wqueue *q)
 {
-    // TODO
-    (void)q;
+    struct job job;
+    while (0 == lqueue_poll(q->lqueue, &job))
+        job.f(0, job.arg);
 }
