@@ -6,7 +6,7 @@
 #include "sha1.h"
 #include "wqueue.h"
 
-#define ITERATIONS (1024 * 16)
+#define ITERATIONS (1024 * 64)
 
 static void
 printer(int id, void *arg)
@@ -30,7 +30,7 @@ printer(int id, void *arg)
 int
 main(void)
 {
-    wqueue *queue = wqueue_create(sysconf(_SC_NPROCESSORS_ONLN));
+    wqueue *queue = wqueue_create(6, sysconf(_SC_NPROCESSORS_ONLN));
     struct {
         char msg[64];
     } jobs[400];

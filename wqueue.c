@@ -5,8 +5,7 @@
 #include "lqueue.h"
 #include "wqueue.h"
 
-#define QUEUE_EXPONENT 8  // 256 queue slots
-#define POISON         NULL
+#define POISON  NULL
 
 struct wqueue {
     lqueue *lqueue;
@@ -41,12 +40,12 @@ worker(void *arg)
 }
 
 wqueue *
-wqueue_create(int nthreads)
+wqueue_create(int exponent, int nthreads)
 {
-    assert(((unsigned)nthreads + 1) < (1UL << QUEUE_EXPONENT));
+    assert(((unsigned)nthreads + 1) < (1UL << exponent));
     nthreads--;
     wqueue *q = malloc(sizeof(*q) + sizeof(q->threads[0]) * nthreads);
-    q->lqueue = lqueue_create(QUEUE_EXPONENT, sizeof(struct job));
+    q->lqueue = lqueue_create(exponent, sizeof(struct job));
     sem_init(&q->count, 0, 0);
     q->nthreads = nthreads;
     for (int i = 0; i < nthreads; i++) {
