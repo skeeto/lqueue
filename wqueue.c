@@ -52,6 +52,7 @@ worker(void *arg)
 wqueue *
 wqueue_create(unsigned min_size, int nthreads)
 {
+    assert(nthreads > 0);
     assert((unsigned)nthreads < min_size);
     nthreads--;
     wqueue *q = malloc(sizeof(*q) + sizeof(q->threads[0]) * nthreads);
