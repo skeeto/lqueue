@@ -12,15 +12,15 @@ struct lqueue {
 };
 
 lqueue *
-lqueue_create(unsigned max_size, size_t element_size)
+lqueue_create(unsigned min_size, size_t element_size)
 {
     /* Round up nearest power of 2. */
     int exponent = 1;
-    while (max_size >>= 1)
+    while (min_size >>= 1)
         exponent++;
-    max_size = 1UL << exponent;
-    lqueue *q = malloc(sizeof(*q) + element_size * max_size);
-    q->mask = max_size - 1;
+    min_size = 1UL << exponent;
+    lqueue *q = malloc(sizeof(*q) + element_size * min_size);
+    q->mask = min_size - 1;
     q->element_size = element_size;
     q->head = ATOMIC_VAR_INIT(0);
     q->tail = ATOMIC_VAR_INIT(0);
