@@ -5,7 +5,7 @@
 
 typedef struct lqueue lqueue;
 
-lqueue *lqueue_create(int exponent, size_t element_size);
+lqueue *lqueue_create(unsigned max_size, size_t element_size);
 void    lqueue_free(lqueue *);
 int     lqueue_offer(lqueue *, void *);
 int     lqueue_poll(lqueue *, void *);

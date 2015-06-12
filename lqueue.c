@@ -12,11 +12,15 @@ struct lqueue {
 };
 
 lqueue *
-lqueue_create(int exponent, size_t element_size)
+lqueue_create(unsigned max_size, size_t element_size)
 {
-    unsigned long size = 1UL << exponent;
-    lqueue *q = malloc(sizeof(*q) + element_size * size);
-    q->mask = size - 1;
+    /* Round up nearest power of 2. */
+    int exponent = 1;
+    while (max_size >>= 1)
+        exponent++;
+    max_size = 1UL << exponent;
+    lqueue *q = malloc(sizeof(*q) + element_size * max_size);
+    q->mask = max_size - 1;
     q->element_size = element_size;
     q->head = ATOMIC_VAR_INIT(0);
     q->tail = ATOMIC_VAR_INIT(0);

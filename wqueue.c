@@ -40,12 +40,12 @@ worker(void *arg)
 }
 
 wqueue *
-wqueue_create(int exponent, int nthreads)
+wqueue_create(unsigned max_size, int nthreads)
 {
-    assert(((unsigned)nthreads + 1) < (1UL << exponent));
+    assert((unsigned)nthreads < max_size);
     nthreads--;
     wqueue *q = malloc(sizeof(*q) + sizeof(q->threads[0]) * nthreads);
-    q->lqueue = lqueue_create(exponent, sizeof(struct job));
+    q->lqueue = lqueue_create(max_size, sizeof(struct job));
     sem_init(&q->count, 0, 0);
     q->nthreads = nthreads;
     for (int i = 0; i < nthreads; i++) {

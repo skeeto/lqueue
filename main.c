@@ -30,7 +30,7 @@ printer(int id, void *arg)
 int
 main(void)
 {
-    wqueue *queue = wqueue_create(6, sysconf(_SC_NPROCESSORS_ONLN));
+    wqueue *queue = wqueue_create(50, sysconf(_SC_NPROCESSORS_ONLN));
     struct {
         char msg[64];
     } jobs[400];
