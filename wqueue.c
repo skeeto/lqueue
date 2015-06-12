@@ -65,7 +65,7 @@ wqueue_free(wqueue *q)
     for (int i = 0; i < q->nthreads; i++)
         pthread_join(q->threads[i].thread, NULL);
     lqueue_free(q->lqueue);
-    sem_close(&q->count);
+    sem_destroy(&q->count);
     free(q);
 }
 
