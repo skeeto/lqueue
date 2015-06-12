@@ -1,13 +1,23 @@
 #include <stdlib.h>
-#include <errno.h>
+#include <string.h>
+#include <stdatomic.h>
 #include "lqueue.h"
 
+struct lqueue {
+    _Atomic unsigned long head;
+    _Atomic unsigned long tail;
+    unsigned long mask;
+    size_t element_size;
+    char buffer[];
+};
+
 lqueue *
-lqueue_create(int exponent)
+lqueue_create(int exponent, size_t element_size)
 {
     unsigned long size = 1UL << exponent;
-    lqueue *q = malloc(sizeof(*q) + sizeof(q->elements[0]) * size);
+    lqueue *q = malloc(sizeof(*q) + element_size * size);
     q->mask = size - 1;
+    q->element_size = element_size;
     q->head = ATOMIC_VAR_INIT(0);
     q->tail = ATOMIC_VAR_INIT(0);
     return q;
@@ -25,24 +35,23 @@ lqueue_offer(lqueue *q, void *v)
     unsigned long head = atomic_load(&q->head);
     unsigned long tail = atomic_load(&q->tail);
     if (((tail + 1) & q->mask) == head)
-        return ENOMEM;
-    atomic_store(&q->elements[tail], v);
+        return 1;
+    memcpy(q->buffer + q->element_size * tail, v, q->element_size);
     atomic_store(&q->tail, ((tail + 1) & q->mask));
     return 0;
 }
 
-void *
-lqueue_poll(lqueue *q)
+int
+lqueue_poll(lqueue *q, void *v)
 {
     unsigned long head = atomic_load(&q->head);
     unsigned long tail = atomic_load(&q->tail);
     unsigned long next_head;
-    void *element;
     do {
         if (head == tail)
-            return NULL;
-        element = atomic_load(&q->elements[head]);
+            return 1;
+        memcpy(v, q->buffer + q->element_size * head, q->element_size);
         next_head = (head + 1) & q->mask;
     } while (!atomic_compare_exchange_weak(&q->head, &head, next_head));
-    return element;
+    return 0;
 }
